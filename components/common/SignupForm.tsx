@@ -1,21 +1,35 @@
 import Link from "next/link";
 import { FcGoogle } from "react-icons/fc";
+import { FormEvent, useState } from "react";
 
 export default function SignupForm() {
+  const [email, setEmail] = useState<string>("");
+  const [password, setPassword] = useState<string>("");
+  const [remember, setRemember] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(false);
+
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    try {
+      setLoading(true);
+
+      // 👉 Replace with your auth logic (Firebase / API / Redux)
+      console.log({ email, password, remember });
+      console.log("Signup form submitted");
+
+      await new Promise((r) => setTimeout(r, 1000));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSignup = () => {
+    console.log("Google signup clicked");
+  };
   return (
     <section className="flex items-center justify-center px-6 py-12  bg-white">
       <div className="w-full max-w-sm">
-        {/* Logo */}
-        {/* <div className="flex items-center gap-2 mb-4">
-          <span
-            aria-hidden="true"
-            className="w-6 h-6 rounded-md bg-purple-500"
-          />
-          <span className="font-semibold text-lg text-purple-600">
-            PulsePoll
-          </span>
-        </div> */}
-
         {/* Heading */}
         <header className="mb-6">
           <h1 className="text-2xl font-bold text-gray-900">
@@ -29,6 +43,7 @@ export default function SignupForm() {
         {/* Google button */}
         <button
           type="button"
+          onClick={handleGoogleSignup}
           className="w-full border rounded-lg py-3 font-medium hover:bg-gray-200 border-gray-300 transition"
           aria-label="Sign up with Google"
         >
@@ -44,7 +59,11 @@ export default function SignupForm() {
         </div>
 
         {/* Form */}
-        <form className="space-y-5" aria-label="Signup form">
+        <form
+          className="space-y-5"
+          aria-label="Signup form"
+          onSubmit={handleSubmit}
+        >
           {/* Email */}
           <div>
             <label htmlFor="email" className="block text-sm font-medium mb-1">
