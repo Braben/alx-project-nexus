@@ -4,7 +4,7 @@ import { AiFillProduct } from "react-icons/ai";
 
 export default function Footer() {
   return (
-    <footer className="border-t bg-white mt-20">
+    <footer className="border-t bg-white">
       <div className="max-w-7xl mx-auto px-6 py-12 grid md:grid-cols-4 gap-8 text-sm">
         {/* Brand */}
         <div>

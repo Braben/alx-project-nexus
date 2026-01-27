@@ -6,7 +6,7 @@ import Footer from "@/components/layout/Footer";
 
 export default function App({ Component, pageProps }: AppProps) {
   return (
-    <main className="max-w-7xl mx-auto p-4">
+    <main className=" mx-auto">
       <Header />
       <Component {...pageProps} />
       <Footer />

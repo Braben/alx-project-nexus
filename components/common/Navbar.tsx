@@ -6,7 +6,7 @@ export default function Navbar() {
   const [open, setOpen] = useState(false);
 
   return (
-    <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 ">
       <div className="flex h-16 items-center justify-between">
         {/* Logo */}
         <Link

@@ -1,23 +1,9 @@
-import Image from "next/image";
-import { Geist, Geist_Mono } from "next/font/google";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+import Hero from "@/components/Hero";
 
 export default function Home() {
   return (
-    <div className="">
-      <h1 className="text-2xl text-blue-700 text-center items-center">
-        {" "}
-        Welcome, Project Nexus start here{" "}
-      </h1>
+    <div className=" min-h-screen container-full">
+      <Hero />
     </div>
   );
 }
