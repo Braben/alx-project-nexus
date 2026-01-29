@@ -1,6 +1,7 @@
 import { FormEvent, useState } from "react";
 import Link from "next/link";
 import { FcGoogle } from "react-icons/fc";
+import { navigate } from "next/dist/client/components/segment-cache/navigation";
 
 export default function LoginForm() {
   const [email, setEmail] = useState<string>("");
@@ -19,6 +20,7 @@ export default function LoginForm() {
 
       // 👉 Replace with your auth logic (Firebase / API / Redux)
       console.log({ email, password, remember });
+      window.location.href = "/dashboard";
 
       await new Promise((r) => setTimeout(r, 1000));
     } finally {
