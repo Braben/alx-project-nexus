@@ -1,7 +1,6 @@
 import { FormEvent, useState } from "react";
 import Link from "next/link";
 import { FcGoogle } from "react-icons/fc";
-import { navigate } from "next/dist/client/components/segment-cache/navigation";
 
 export default function LoginForm() {
   const [email, setEmail] = useState<string>("");

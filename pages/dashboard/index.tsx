@@ -1,34 +1,42 @@
+import { useEffect } from "react";
+
 import Sidebar from "@/components/dashboard/SideBar";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import PollCard from "@/components/dashboard/PollCard";
+import PollFilters from "@/components/dashboard/PollFilters";
+
+import { fetchPolls } from "@/store/slices/pollsSlice";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
 
 export default function DashboardPage() {
-  const polls = [
-    {
-      id: "1",
-      title: "Product Roadmap Q4 Priorities",
-      status: "Live",
-      responses: 142,
-      metric: "85%",
-      metricLabel: "Completion",
-    },
-    {
-      id: "2",
-      title: "Weekly Team Retro",
-      status: "Draft",
-      responses: 0,
-      metric: "--",
-      metricLabel: "Completion",
-    },
-    {
-      id: "3",
-      title: "Workshop Feedback Survey",
-      status: "Ended",
-      responses: 89,
-      metric: "4.8",
-      metricLabel: "Avg Rating",
-    },
-  ];
+  const dispatch = useAppDispatch();
+
+  // ✅ SINGLE selector (safe)
+  const {
+    items = [],
+    loading,
+    filter,
+    search,
+  } = useAppSelector((state) => state.polls);
+
+  useEffect(() => {
+    if (!items.length) {
+      dispatch(fetchPolls());
+    }
+  }, [dispatch, items.length]);
+
+  if (loading) return <p>Loading polls...</p>;
+
+  // ✅ safe because items defaults to []
+  const filteredPolls = items.filter((poll) => {
+    const matchesFilter = filter === "All" || poll.status === filter;
+
+    const matchesSearch = poll.title
+      .toLowerCase()
+      .includes(search.toLowerCase());
+
+    return matchesFilter && matchesSearch;
+  });
 
   return (
     <div className="flex bg-gray-50 min-h-screen">
@@ -36,24 +44,13 @@ export default function DashboardPage() {
 
       <main className="flex-1 p-8">
         <DashboardHeader />
+        <PollFilters />
 
-        {/* Tabs */}
-        <div className="flex gap-3 mb-6 text-sm">
-          {["All Polls", "Live", "Drafts", "Archived"].map((tab) => (
-            <button
-              key={tab}
-              className="px-3 py-1 rounded-lg bg-gray-100 hover:bg-blue-50 hover:text-blue-600"
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
-
-        {/* Poll Grid */}
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {polls.map((poll) => (
-            <PollCard key={poll.id} {...poll} />
-          ))}
+          {filteredPolls.map((poll) => {
+            console.log("Rendering poll:", poll);
+            return <PollCard key={poll.id} {...poll} />;
+          })}
         </div>
       </main>
     </div>

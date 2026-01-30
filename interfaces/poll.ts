@@ -1,9 +1,17 @@
-export type PollStatusProps = "active" | "closed";
+export type PollStatus = "Live" | "Draft" | "Ended";
 
-export interface PollProps {
+export interface Poll {
   id: string;
-  question: string;
-  totalVotes: number;
-  status: PollStatusProps;
-  createdAt: string;
+  title: string;
+  status: PollStatus;
+
+  responses: number;
+
+  completion?: number;
+  avgRating?: number;
+
+  metric?: string;
+  metricLabel?: string;
+
+  createdAt?: string;
 }

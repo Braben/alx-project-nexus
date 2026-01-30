@@ -1,22 +1,13 @@
 import Link from "next/link";
+import { Poll } from "@/interfaces/poll";
 
 interface PollCardProps {
-  id: string;
-  title: string;
-  status: "Live" | "Draft" | "Ended";
-  responses: number;
-  metric: string;
-  metricLabel: string;
+  poll: Poll;
 }
 
-export default function PollCard({
-  id,
-  title,
-  status,
-  responses,
-  metric,
-  metricLabel,
-}: PollCardProps) {
+export default function PollCard({ poll }: PollCardProps) {
+  const { id, title, status, responses, metric, metricLabel } = poll;
+
   const statusColor = {
     Live: "bg-green-100 text-green-600",
     Draft: "bg-blue-100 text-blue-600",

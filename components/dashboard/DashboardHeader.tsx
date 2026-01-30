@@ -9,11 +9,11 @@ export default function DashboardHeader() {
       </div>
 
       <div className="flex gap-3">
-        <input
+        {/* <input
           type="text"
           placeholder="Search polls by title..."
           className="border rounded-lg px-3 py-2 text-sm w-64"
-        />
+        /> */}
 
         <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
           Create Poll
