@@ -1,22 +1,3 @@
-// later you can replace this with fetch/axios without touching redux
-
-// export type PollStatus = "Live" | "Draft" | "Ended";
-
-// export interface Poll {
-//   id: string;
-//   title: string;
-//   status: PollStatus;
-
-//   responses: number;
-
-//   completion?: number;
-//   avgRating?: number;
-
-//   metric?: string;
-//   metricLabel?: string;
-
-//   createdAt?: string;
-// }
 import { Poll } from "@/interfaces/poll";
 
 const mockPolls: Poll[] = [
@@ -27,6 +8,11 @@ const mockPolls: Poll[] = [
     completion: 85,
     status: "Live",
     createdAt: "2 days ago",
+    candidates: [
+      { id: "1-1", name: "Performance Improvements" },
+      { id: "1-2", name: "New Integrations" },
+      { id: "1-3", name: "Mobile Experience" },
+    ],
   },
   {
     id: "2",
@@ -34,6 +20,10 @@ const mockPolls: Poll[] = [
     responses: 0,
     status: "Draft",
     createdAt: "4 hours ago",
+    candidates: [
+      { id: "2-1", name: "Team Morale" },
+      { id: "2-2", name: "Process Improvements" },
+    ],
   },
   {
     id: "3",
@@ -42,14 +32,24 @@ const mockPolls: Poll[] = [
     avgRating: 4.8,
     status: "Ended",
     createdAt: "Oct 01, 2023",
+    candidates: [
+      { id: "3-1", name: "Excellent" },
+      { id: "3-2", name: "Good" },
+      { id: "3-3", name: "Needs Work" },
+    ],
   },
   {
     id: "4",
     title: "Product Feedback Survey",
     responses: 120,
     avgRating: 4.5,
-    status: "Live",
+    status: "Archived",
     createdAt: "Oct 01, 2023",
+    candidates: [
+      { id: "4-1", name: "Ease of Use" },
+      { id: "4-2", name: "Feature Set" },
+      { id: "4-3", name: "Support" },
+    ],
   },
 ];
 

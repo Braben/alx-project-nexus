@@ -48,8 +48,8 @@ export default function DashboardPage() {
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredPolls.map((poll) => {
-            console.log("Rendering poll:", poll);
-            return <PollCard key={poll.id} {...poll} />;
+            // console.log("Rendering poll:", poll);
+            return <PollCard key={poll.id} poll={poll} />;
           })}
         </div>
       </main>

@@ -20,6 +20,7 @@
 
 import { configureStore } from "@reduxjs/toolkit";
 import pollsReducer from "./slices/pollsSlice";
+import candidatesReducer from "./slices/candidatesSlice";
 
 import {
   persistReducer,
@@ -32,13 +33,18 @@ import {
   REGISTER,
 } from "redux-persist";
 
-import { persistConfig } from "./persist";
+import { persistConfig, candidatesPersistConfig } from "./persist";
 
-const persistedReducer = persistReducer(persistConfig, pollsReducer);
+const persistedPollsReducer = persistReducer(persistConfig, pollsReducer);
+const persistedCandidatesReducer = persistReducer(
+  candidatesPersistConfig,
+  candidatesReducer,
+);
 
 export const store = configureStore({
   reducer: {
-    polls: persistedReducer,
+    polls: persistedPollsReducer,
+    candidates: persistedCandidatesReducer,
   },
 
   // THIS FIXES YOUR ERROR

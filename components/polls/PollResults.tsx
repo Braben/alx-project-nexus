@@ -15,7 +15,10 @@ export default function PollResults({ options }: Props) {
       <h2 className="text-center font-semibold text-lg mb-6">Live Results</h2>
 
       {options.map((option, index) => {
-        const percent = Math.round((option.votes / totalVotes) * 100);
+        const percent =
+          totalVotes === 0
+            ? 0
+            : Math.round((option.votes / totalVotes) * 100);
 
         return (
           <div key={index}>

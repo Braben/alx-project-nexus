@@ -5,3 +5,8 @@ export const persistConfig = {
   storage,
   whitelist: ["polls"], // only persist polls
 };
+
+export const candidatesPersistConfig = {
+  key: "candidates",
+  storage,
+};
