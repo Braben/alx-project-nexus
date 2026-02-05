@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 interface SharePayload {
   pollTitle: string;
@@ -57,6 +57,7 @@ export function usePollShare() {
     shareUrl,
     share,
     copy,
+    showToast,
     shareModalOpen,
     openShareModal,
     closeShareModal,

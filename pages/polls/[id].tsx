@@ -223,7 +223,6 @@ export default function PollDetailsPage() {
                     selected={selected}
                     onSelect={setSelected}
                     onVote={handleVote}
-                    disabled={poll.status === "Ended"}
                   />
                 ) : (
                   <div className="space-y-6">

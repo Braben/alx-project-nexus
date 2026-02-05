@@ -20,7 +20,17 @@ interface CreatePollModalProps {
   poll?: Poll | null;
 }
 
-const initialFormState = {
+type FormState = {
+  title: string;
+  category: string;
+  description: string;
+  startDate: string;
+  endDate: string;
+  visibility: "instant" | "hidden";
+  electionMode: boolean;
+};
+
+const initialFormState: FormState = {
   title: "",
   category: "",
   description: "",
@@ -193,10 +203,7 @@ export default function CreatePollModal({
 
   if (!open) return null;
 
-  const updateField = (
-    key: keyof typeof initialFormState,
-    value: string | boolean,
-  ) => {
+  const updateField = (key: keyof FormState, value: string | boolean) => {
     setFormState((prev) => ({
       ...prev,
       [key]: value,
@@ -279,15 +286,12 @@ export default function CreatePollModal({
       dispatch(
         addPoll({
           id: createdId,
-          title: payload.title,
-          status: payload.status,
           responses: 0,
           ...payload,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         }),
       );
-      setLastCreatedId(createdId);
       if (shareBaseUrl) {
         const link = `${shareBaseUrl}/polls/${createdId}`;
         try {

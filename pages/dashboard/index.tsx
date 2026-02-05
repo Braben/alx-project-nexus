@@ -37,6 +37,7 @@ export default function DashboardPage() {
     shareUrl,
     share,
     copy,
+    showToast,
     shareModalOpen,
     closeShareModal,
     shareToast,
@@ -141,8 +142,7 @@ export default function DashboardPage() {
     document.body.removeChild(csvLink);
     URL.revokeObjectURL(csvUrl);
 
-    setShareToast("CSV downloaded");
-    setTimeout(() => setShareToast(null), 2000);
+    showToast("CSV downloaded");
     closeExportModal();
   };
 
@@ -222,8 +222,7 @@ export default function DashboardPage() {
     doc.text(`Exported At: ${exportedAt}`, marginX, y);
 
     doc.save(`${slugifyFilename(poll.title)}.pdf`);
-    setShareToast("PDF downloaded");
-    setTimeout(() => setShareToast(null), 2000);
+    showToast("PDF downloaded");
     closeExportModal();
   };
 
