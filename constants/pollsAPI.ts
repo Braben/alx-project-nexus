@@ -4,10 +4,10 @@ const mockPolls: Poll[] = [
   {
     id: "1",
     title: "Product Roadmap Q4 Priorities",
-    responses: 142,
-    completion: 85,
+    responses: 0,
+    completion: 0,
     status: "Live",
-    createdAt: "2 days ago",
+    createdAt: " Oct 01, 2023",
     candidates: [
       { id: "1-1", name: "Performance Improvements" },
       { id: "1-2", name: "New Integrations" },
@@ -19,7 +19,7 @@ const mockPolls: Poll[] = [
     title: "Weekly Team Retro - Oct 15",
     responses: 0,
     status: "Draft",
-    createdAt: "4 hours ago",
+    createdAt: "Oct 01, 2023",
     candidates: [
       { id: "2-1", name: "Team Morale" },
       { id: "2-2", name: "Process Improvements" },
@@ -28,7 +28,7 @@ const mockPolls: Poll[] = [
   {
     id: "3",
     title: "Workshop Feedback Survey",
-    responses: 89,
+    responses: 0,
     avgRating: 4.8,
     status: "Ended",
     createdAt: "Oct 01, 2023",
@@ -41,10 +41,10 @@ const mockPolls: Poll[] = [
   {
     id: "4",
     title: "Product Feedback Survey",
-    responses: 120,
+    responses: 0,
     avgRating: 4.5,
     status: "Archived",
-    createdAt: "Oct 01, 2023",
+    createdAt: "Sep 20, 2023",
     candidates: [
       { id: "4-1", name: "Ease of Use" },
       { id: "4-2", name: "Feature Set" },

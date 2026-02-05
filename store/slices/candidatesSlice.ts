@@ -20,6 +20,20 @@ const candidatesSlice = createSlice({
   name: "candidates",
   initialState,
   reducers: {
+    setCandidates: (state, action: PayloadAction<PollCandidate[]>) => {
+      const incoming = action.payload ?? [];
+      const normalized =
+        incoming.length >= 2
+          ? incoming
+          : [
+              ...incoming,
+              ...Array.from(
+                { length: 2 - incoming.length },
+                createCandidate,
+              ),
+            ];
+      state.items = normalized;
+    },
     initializeCandidates: (state) => {
       if (state.items.length >= 2) return;
       const missing = 2 - state.items.length;
@@ -53,6 +67,7 @@ const candidatesSlice = createSlice({
 });
 
 export const {
+  setCandidates,
   initializeCandidates,
   addCandidate,
   updateCandidate,

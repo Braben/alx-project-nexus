@@ -11,7 +11,8 @@ export default function PollFilters() {
     { label: "All Polls", value: "All" },
     { label: "Live", value: "Live" },
     { label: "Drafts", value: "Draft" },
-    { label: "Archived", value: "Ended" },
+    { label: "Archived", value: "Archived" },
+    { label: "Ended", value: "Ended" },
   ];
 
   return (

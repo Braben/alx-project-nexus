@@ -1,11 +1,13 @@
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
+import { Poll } from "@/interfaces/poll";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { addPoll } from "@/store/slices/pollsSlice";
+import { addPoll, updatePoll } from "@/store/slices/pollsSlice";
 import {
   addCandidate,
   initializeCandidates,
   removeCandidate,
+  setCandidates,
   resetCandidates,
   updateCandidate,
 } from "@/store/slices/candidatesSlice";
@@ -14,6 +16,8 @@ import { IoIosCloseCircleOutline } from "react-icons/io";
 interface CreatePollModalProps {
   open: boolean;
   onClose: () => void;
+  mode?: "create" | "edit";
+  poll?: Poll | null;
 }
 
 const initialFormState = {
@@ -29,6 +33,8 @@ const initialFormState = {
 export default function CreatePollModal({
   open,
   onClose,
+  mode = "create",
+  poll = null,
 }: CreatePollModalProps) {
   const dispatch = useAppDispatch();
   const candidates = useAppSelector((state) => state.candidates.items);
@@ -38,15 +44,123 @@ export default function CreatePollModal({
   const [titleError, setTitleError] = useState("");
   const [candidateError, setCandidateError] = useState("");
   const [dateError, setDateError] = useState("");
+  const [statusValue, setStatusValue] = useState<"Draft" | "Live" | "Ended">(
+    "Draft",
+  );
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+  const [shareBaseUrl, setShareBaseUrl] = useState("");
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
-    dispatch(initializeCandidates());
+    if (mode === "edit" && poll) {
+      setFormState({
+        title: poll.title ?? "",
+        category: poll.category ?? "",
+        description: poll.description ?? "",
+        startDate: poll.startDate ?? "",
+        endDate: poll.endDate ?? "",
+        visibility: poll.visibility ?? "instant",
+        electionMode: poll.electionMode ?? true,
+      });
+      setStatusValue(
+        poll.status === "Ended"
+          ? "Ended"
+          : poll.status === "Live"
+            ? "Live"
+            : "Draft",
+      );
+      dispatch(setCandidates(poll.candidates?.length ? poll.candidates : []));
+    } else {
+      setFormState(initialFormState);
+      setStatusValue("Draft");
+      dispatch(resetCandidates());
+      dispatch(initializeCandidates());
+    }
+  }, [dispatch, mode, open, poll]);
+
+  useEffect(() => {
+    if (!open) {
+      setShowCloseConfirm(false);
+      setToastMessage(null);
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (typeof window !== "undefined") {
+      setShareBaseUrl(window.location.origin);
+    }
+  }, [open]);
+
+
+  const normalizedCandidates = useMemo(
+    () =>
+      candidates.map((candidate) => ({
+        ...candidate,
+        name: candidate.name.trim(),
+        affiliation: candidate.affiliation?.trim() || "",
+      })),
+    [candidates],
+  );
+
+  const isDirty = useMemo(() => {
+    if (!open) return false;
+    if (mode === "edit" && poll) {
+      return (
+        formState.title !== (poll.title ?? "") ||
+        formState.category !== (poll.category ?? "") ||
+        formState.description !== (poll.description ?? "") ||
+        formState.startDate !== (poll.startDate ?? "") ||
+        formState.endDate !== (poll.endDate ?? "") ||
+        formState.visibility !== (poll.visibility ?? "instant") ||
+        formState.electionMode !== (poll.electionMode ?? true) ||
+        statusValue !==
+          (poll.status === "Ended"
+            ? "Ended"
+            : poll.status === "Live"
+              ? "Live"
+              : "Draft") ||
+        JSON.stringify(normalizedCandidates) !==
+          JSON.stringify(
+            (poll.candidates ?? []).map((candidate) => ({
+              ...candidate,
+              name: candidate.name.trim(),
+              affiliation: candidate.affiliation?.trim() || "",
+            })),
+          )
+      );
+    }
+
+    const baseIsDirty =
+      formState.title ||
+      formState.category ||
+      formState.description ||
+      formState.startDate ||
+      formState.endDate ||
+      formState.visibility !== "instant" ||
+      formState.electionMode !== true ||
+      statusValue !== "Draft";
+
+    const candidateIsDirty = normalizedCandidates.some(
+      (candidate) =>
+        candidate.name.length > 0 || candidate.affiliation.length > 0,
+    );
+
+    return Boolean(baseIsDirty || candidateIsDirty);
+  }, [formState, mode, normalizedCandidates, open, poll, statusValue]);
+
+  useEffect(() => {
+    if (!open) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
-        onClose();
+        if (isDirty) {
+          setShowCloseConfirm(true);
+        } else {
+          onClose();
+        }
         return;
       }
 
@@ -75,7 +189,7 @@ export default function CreatePollModal({
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [dispatch, open, onClose]);
+  }, [isDirty, onClose, open]);
 
   if (!open) return null;
 
@@ -112,7 +226,7 @@ export default function CreatePollModal({
     return true;
   };
 
-  const handleSubmit = (event: FormEvent) => {
+  const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     const trimmedTitle = formState.title.trim();
     if (!trimmedTitle) {
@@ -133,32 +247,72 @@ export default function CreatePollModal({
       return;
     }
 
-    dispatch(
-      addPoll({
-        id: `${Date.now()}`,
-        title: trimmedTitle,
-        status: "Draft",
-        responses: 0,
-        category: formState.category.trim() || undefined,
-        description: formState.description.trim() || undefined,
-        startDate: formState.startDate || undefined,
-        endDate: formState.endDate || undefined,
-        visibility: formState.visibility,
-        electionMode: formState.electionMode,
-        candidates: filledCandidates.map((candidate) => ({
-          ...candidate,
-          name: candidate.name.trim(),
-          affiliation: candidate.affiliation?.trim() || undefined,
-        })),
-        createdAt: new Date().toISOString(),
-      }),
-    );
+    const payload = {
+      title: trimmedTitle,
+      category: formState.category.trim() || undefined,
+      description: formState.description.trim() || undefined,
+      startDate: formState.startDate || undefined,
+      endDate: formState.endDate || undefined,
+      visibility: formState.visibility,
+      electionMode: formState.electionMode,
+      status: statusValue,
+      candidates: filledCandidates.map((candidate) => ({
+        ...candidate,
+        name: candidate.name.trim(),
+        affiliation: candidate.affiliation?.trim() || undefined,
+      })),
+    };
+
+    if (mode === "edit" && poll) {
+      dispatch(
+        updatePoll({
+          id: poll.id,
+          changes: {
+            ...payload,
+            updatedAt: new Date().toISOString(),
+          },
+        }),
+      );
+      onClose();
+    } else {
+      const createdId = `${Date.now()}`;
+      dispatch(
+        addPoll({
+          id: createdId,
+          title: payload.title,
+          status: payload.status,
+          responses: 0,
+          ...payload,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        }),
+      );
+      setLastCreatedId(createdId);
+      if (shareBaseUrl) {
+        const link = `${shareBaseUrl}/polls/${createdId}`;
+        try {
+          await navigator.clipboard.writeText(link);
+          setToastMessage("Share link copied");
+        } catch {
+          setToastMessage("Poll created");
+        }
+        setTimeout(() => setToastMessage(null), 2000);
+      }
+      onClose();
+    }
 
     setFormState(initialFormState);
     setTitleError("");
     setCandidateError("");
     setDateError("");
     dispatch(resetCandidates());
+  };
+
+  const handleRequestClose = () => {
+    if (isDirty) {
+      setShowCloseConfirm(true);
+      return;
+    }
     onClose();
   };
 
@@ -167,29 +321,39 @@ export default function CreatePollModal({
       <button
         aria-label="Close create poll modal"
         className="absolute inset-0 z-0 bg-black/40"
-        onClick={onClose}
+        onClick={handleRequestClose}
       />
 
       <div
         ref={modalRef}
         role="dialog"
         aria-modal="true"
-        aria-label="Create poll"
+        aria-label={mode === "edit" ? "Edit poll" : "Create poll"}
         className="relative z-10 mx-auto my-6 flex max-h-[90vh] w-[min(760px,94vw)] flex-col rounded-2xl bg-gray-50 shadow-2xl"
       >
         <div className="flex items-start justify-between gap-4 border-b bg-white px-6 py-5 rounded-t-2xl">
           <div>
             <p className="text-xs uppercase tracking-wide text-gray-400">
-              My Polls / Create Poll
+              My Polls / {mode === "edit" ? "Edit Poll" : "Create Poll"}
             </p>
-            <h2 className="text-lg font-semibold text-gray-900">Create Poll</h2>
+            <h2 className="text-lg font-semibold text-gray-900">
+              {mode === "edit" ? "Edit Poll" : "Create Poll"}
+            </h2>
             <p className="text-sm text-gray-500">
               Configure poll details and audience settings.
             </p>
+            {mode === "edit" && (poll?.updatedAt || poll?.createdAt) && (
+              <p className="mt-1 text-xs text-gray-400">
+                Last edited:{" "}
+                {new Date(
+                  poll.updatedAt ?? poll.createdAt ?? "",
+                ).toLocaleString()}
+              </p>
+            )}
           </div>
           <IoIosCloseCircleOutline
             className="cursor-pointer text-red-500 hover:text-red-700"
-            onClick={onClose}
+            onClick={handleRequestClose}
           />
           {/* <button
             className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
@@ -318,7 +482,9 @@ export default function CreatePollModal({
                           <button
                             type="button"
                             className="text-xs text-red-500 hover:underline"
-                            onClick={() => dispatch(removeCandidate(candidate.id))}
+                            onClick={() =>
+                              dispatch(removeCandidate(candidate.id))
+                            }
                           >
                             Remove
                           </button>
@@ -454,21 +620,92 @@ export default function CreatePollModal({
                 <button
                   type="button"
                   className="rounded-lg border px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
-                  onClick={onClose}
+                  onClick={handleRequestClose}
                 >
                   Cancel
+                </button>
+                <div className="flex items-center gap-2 rounded-lg border px-2 py-1 text-xs text-gray-600">
+                  <span>Draft</span>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={statusValue === "Live"}
+                    className={`relative h-5 w-9 rounded-full ${
+                      statusValue === "Live" ? "bg-blue-600" : "bg-gray-300"
+                    }`}
+                    onClick={() =>
+                      setStatusValue(statusValue === "Live" ? "Draft" : "Live")
+                    }
+                  >
+                    <span
+                      className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition ${
+                        statusValue === "Live" ? "right-0.5" : "left-0.5"
+                      }`}
+                    />
+                  </button>
+                  <span>Publish</span>
+                </div>
+                <button
+                  type="button"
+                  className={`rounded-lg border px-3 py-2 text-sm ${
+                    statusValue === "Ended"
+                      ? "border-red-200 bg-red-50 text-red-600"
+                      : "text-gray-600 hover:bg-gray-50"
+                  }`}
+                  onClick={() =>
+                    setStatusValue(statusValue === "Ended" ? "Live" : "Ended")
+                  }
+                >
+                  {statusValue === "Ended" ? "Reopen Poll" : "End Poll"}
                 </button>
                 <button
                   type="submit"
                   className="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
                 >
-                  Create Poll
+                  {mode === "edit" ? "Save Changes" : "Create Poll"}
                 </button>
               </div>
             </div>
           </form>
         </div>
       </div>
+
+      {showCloseConfirm && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center px-4">
+          <div className="w-full max-w-sm rounded-xl bg-white p-5 shadow-xl">
+            <h3 className="text-sm font-semibold text-gray-900">
+              Discard unsaved changes?
+            </h3>
+            <p className="mt-2 text-sm text-gray-500">
+              You have unsaved edits. If you close now, those changes will be
+              lost.
+            </p>
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <button
+                className="rounded-lg border px-3 py-2 text-sm text-gray-600 hover:bg-gray-50"
+                onClick={() => setShowCloseConfirm(false)}
+              >
+                Keep Editing
+              </button>
+              <button
+                className="rounded-lg bg-red-600 px-3 py-2 text-sm text-white hover:bg-red-700"
+                onClick={() => {
+                  setShowCloseConfirm(false);
+                  onClose();
+                }}
+              >
+                Discard Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 rounded-lg bg-gray-900 px-4 py-2 text-sm text-white shadow-lg">
+          {toastMessage}
+        </div>
+      )}
     </div>
   );
 }

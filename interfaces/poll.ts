@@ -22,6 +22,7 @@ export interface Poll {
   metricLabel?: string;
 
   createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface PollCandidate {

@@ -1,11 +1,23 @@
-import Link from "next/link";
+import { FaShareAlt } from "react-icons/fa";
 import { Poll } from "@/interfaces/poll";
 
 interface PollCardProps {
   poll: Poll;
+  onEdit?: (poll: Poll) => void;
+  onShare?: (poll: Poll) => void;
+  onResults?: (poll: Poll) => void;
+  onExport?: (poll: Poll) => void;
+  onView?: (poll: Poll) => void;
 }
 
-export default function PollCard({ poll }: PollCardProps) {
+export default function PollCard({
+  poll,
+  onEdit,
+  onShare,
+  onResults,
+  onExport,
+  onView,
+}: PollCardProps) {
   if (!poll) return null;
   const {
     id,
@@ -16,6 +28,8 @@ export default function PollCard({ poll }: PollCardProps) {
     metricLabel,
     completion,
     avgRating,
+    updatedAt,
+    createdAt,
   } = poll;
 
   const statusColor =
@@ -40,33 +54,108 @@ export default function PollCard({ poll }: PollCardProps) {
         ? "Avg Rating"
         : "Metric");
 
+  const lastEditedAt = updatedAt ?? createdAt;
+  const lastEditedLabel = lastEditedAt
+    ? new Date(lastEditedAt).toLocaleString()
+    : null;
+  const endedLabel =
+    status === "Ended" && lastEditedAt
+      ? new Date(lastEditedAt).toLocaleDateString()
+      : null;
+
   return (
-    <div className="bg-white border rounded-xl p-5 shadow-sm">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="font-semibold">{title}</h3>
-        <span className={`text-xs px-2 py-1 rounded ${statusColor}`}>
+    <div className="bg-white border rounded-2xl p-5 shadow-sm">
+      <div className="flex justify-between items-center mb-2">
+        <h3 className="font-semibold text-gray-900">{title}</h3>
+        <span className={`text-xs px-3 py-1 rounded-full ${statusColor}`}>
           {status}
         </span>
       </div>
 
-      <div className="flex gap-8 mb-4 text-sm">
+      {endedLabel ? (
+        <p className="text-xs text-gray-500 mb-1">Ended on {endedLabel}</p>
+      ) : null}
+
+      {lastEditedLabel && status !== "Ended" ? (
+        <p className="text-xs text-gray-500 mb-4">
+          Last edited {lastEditedLabel}
+        </p>
+      ) : (
+        <div className="mb-4" />
+      )}
+
+      <div className="border-y border-gray-100 py-4 flex gap-8 text-sm">
         <div>
-          <p className="font-bold text-lg">{responses}</p>
+          <p className="font-semibold text-lg text-gray-900">{responses}</p>
           <p className="text-gray-400">Responses</p>
         </div>
 
         <div>
-          <p className="font-bold text-lg">{derivedMetric}</p>
+          <p className="font-semibold text-lg text-gray-900">{derivedMetric}</p>
           <p className="text-gray-400">{derivedMetricLabel}</p>
         </div>
       </div>
 
-      <Link
-        href={`/polls/${id}`}
-        className="text-blue-600 text-sm font-medium hover:underline"
-      >
-        Edit Poll
-      </Link>
+      <div className="mt-4 flex items-center justify-between">
+        {status === "Live" && (
+          <>
+            <button
+              type="button"
+              className="flex items-center gap-2 rounded-lg border px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+              onClick={() => onShare?.(poll)}
+            >
+              <FaShareAlt size={12} />
+              Share
+            </button>
+            <button
+              type="button"
+              className="text-sm font-medium text-gray-500 hover:text-gray-700"
+              onClick={() => onResults?.(poll)}
+            >
+              Results
+            </button>
+          </>
+        )}
+
+        {status === "Draft" && (
+          <button
+            type="button"
+            className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700 hover:bg-blue-100"
+            onClick={() => onEdit?.(poll)}
+          >
+            Edit Poll
+          </button>
+        )}
+
+        {status === "Ended" && (
+          <>
+            <button
+              type="button"
+              className="rounded-lg border px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+              onClick={() => onExport?.(poll)}
+            >
+              Export
+            </button>
+            <button
+              type="button"
+              className="text-sm font-medium text-gray-500 hover:text-gray-700"
+              onClick={() => onView?.(poll)}
+            >
+              View
+            </button>
+          </>
+        )}
+
+        {status === "Archived" && (
+          <button
+            type="button"
+            className="text-sm font-medium text-gray-500 hover:text-gray-700"
+            onClick={() => onView?.(poll)}
+          >
+            View
+          </button>
+        )}
+      </div>
     </div>
   );
 }
