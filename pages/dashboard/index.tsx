@@ -10,7 +10,7 @@ import CreatePollModal from "@/components/dashboard/CreatePollModal";
 import SharePollModal from "@/components/dashboard/SharePollModal";
 import { usePollShare } from "@/hooks/usePollShare";
 
-import { fetchPolls } from "@/store/slices/pollsSlice";
+import { fetchPolls, setVoteCounts } from "@/store/slices/pollsSlice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 
 export default function DashboardPage() {
@@ -231,6 +231,53 @@ export default function DashboardPage() {
       dispatch(fetchPolls());
     }
   }, [dispatch, items.length]);
+
+  useEffect(() => {
+    if (!items.length || typeof window === "undefined") return;
+
+    items.forEach((poll) => {
+      const votesKey = `poll-votes:${poll.id}`;
+      try {
+        const storedVotes = localStorage.getItem(votesKey);
+        if (!storedVotes) return;
+        const parsedVotes = JSON.parse(storedVotes) as number[];
+        if (!Array.isArray(parsedVotes)) return;
+        const normalized = Array.from(
+          { length: poll.candidates?.length ?? parsedVotes.length },
+          (_, idx) => parsedVotes[idx] ?? 0,
+        );
+        dispatch(setVoteCounts({ pollId: poll.id, counts: normalized }));
+      } catch {
+        // Ignore malformed localStorage entries.
+      }
+    });
+  }, [dispatch, items]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleStorage = (event: StorageEvent) => {
+      if (!event.key || !event.key.startsWith("poll-votes:")) return;
+      const pollId = event.key.replace("poll-votes:", "");
+      if (!pollId) return;
+      if (!event.newValue) return;
+      try {
+        const parsedVotes = JSON.parse(event.newValue) as number[];
+        if (!Array.isArray(parsedVotes)) return;
+        const poll = items.find((item) => item.id === pollId);
+        const normalized = Array.from(
+          { length: poll?.candidates?.length ?? parsedVotes.length },
+          (_, idx) => parsedVotes[idx] ?? 0,
+        );
+        dispatch(setVoteCounts({ pollId, counts: normalized }));
+      } catch {
+        // Ignore malformed updates.
+      }
+    };
+
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, [dispatch, items]);
 
   if (loading) return <p>Loading polls...</p>;
 
