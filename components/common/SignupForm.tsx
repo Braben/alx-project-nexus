@@ -1,36 +1,96 @@
 import Link from "next/link";
 import { FcGoogle } from "react-icons/fc";
-import { FormEvent, useState } from "react";
+import { useState } from "react";
+import { useRouter } from "next/router";
+import { supabase } from "@/supabase/superbase-client";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
 
 export default function SignupForm() {
-  const [email, setEmail] = useState<string>("");
-  const [password, setPassword] = useState<string>("");
-  const [remember, setRemember] = useState<boolean>(false);
+  const router = useRouter();
   const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
 
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const schema = z.object({
+    email: z.string().email("Enter a valid email."),
+    password: z
+      .string()
+      .min(6, "Password must be at least 6 characters."),
+    remember: z.boolean().optional(),
+  });
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    getValues,
+  } = useForm<z.infer<typeof schema>>({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      email: "",
+      password: "",
+      remember: false,
+    },
+  });
+
+  const onSubmit = async (values: z.infer<typeof schema>) => {
+    if (loading) return;
 
     try {
       setLoading(true);
+      setError(null);
+      setMessage(null);
 
-      // 👉 Replace with your auth logic (Firebase / API / Redux)
-      console.log({ email, password, remember });
-      console.log("Signup form submitted");
+      const { error } = await supabase.auth.signUp({
+        email: values.email,
+        password: values.password,
+      });
 
-      await new Promise((r) => setTimeout(r, 1000));
+      if (error) {
+        setError(error.message);
+        return;
+      }
+
+      if (!values.remember) {
+        localStorage.setItem("pp-session-only", "true");
+        sessionStorage.setItem("pp-session-only", "true");
+      } else {
+        localStorage.removeItem("pp-session-only");
+      }
+
+      setMessage("Check your email to confirm your account.");
+      await router.push("/dashboard");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGoogleSignup = () => {
-    console.log("Google signup clicked");
+  const handleGoogleSignup = async () => {
+    if (loading) return;
+    setLoading(true);
+    setError(null);
+    setMessage(null);
+    const values = getValues();
+    if (!values.remember) {
+      localStorage.setItem("pp-session-only", "true");
+      sessionStorage.setItem("pp-session-only", "true");
+    } else {
+      localStorage.removeItem("pp-session-only");
+    }
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+    });
+    if (error) {
+      setError(error.message);
+      setLoading(false);
+    }
   };
+
   return (
-    <section className="flex items-center justify-center px-6 py-12  bg-white">
+    <section className="flex items-center justify-center px-6 py-12 bg-white">
       <div className="w-full max-w-sm">
-        {/* Heading */}
         <header className="mb-6">
           <h1 className="text-2xl font-bold text-gray-900">
             Create an account
@@ -40,7 +100,6 @@ export default function SignupForm() {
           </p>
         </header>
 
-        {/* Google button */}
         <button
           type="button"
           onClick={handleGoogleSignup}
@@ -51,20 +110,17 @@ export default function SignupForm() {
           Sign up with Google
         </button>
 
-        {/* Divider */}
         <div className="my-6 flex items-center text-xs text-gray-400">
           <span className="flex-1 h-px bg-gray-200" />
           <span className="px-3">OR CONTINUE WITH</span>
           <span className="flex-1 h-px bg-gray-200" />
         </div>
 
-        {/* Form */}
         <form
           className="space-y-5"
           aria-label="Signup form"
-          onSubmit={handleSubmit}
+          onSubmit={handleSubmit(onSubmit)}
         >
-          {/* Email */}
           <div>
             <label htmlFor="email" className="block text-sm font-medium mb-1">
               Email
@@ -75,11 +131,16 @@ export default function SignupForm() {
               required
               autoComplete="email"
               placeholder="olivia@example.com"
+              {...register("email")}
               className="w-full border rounded-lg px-3 py-2 focus:ring-1 border-gray-300 focus:ring-gray-500 focus:outline-none"
             />
+            {errors.email && (
+              <p className="mt-1 text-xs text-red-600">
+                {errors.email.message}
+              </p>
+            )}
           </div>
 
-          {/* Password */}
           <div>
             <label
               htmlFor="password"
@@ -92,27 +153,34 @@ export default function SignupForm() {
               type="password"
               required
               autoComplete="new-password"
-              placeholder="••••••••"
+              placeholder="********"
+              {...register("password")}
               className="w-full border rounded-lg px-3 py-2 focus:ring-1 border-gray-300 focus:ring-gray-500 focus:outline-none"
             />
+            {errors.password && (
+              <p className="mt-1 text-xs text-red-600">
+                {errors.password.message}
+              </p>
+            )}
           </div>
 
-          {/* Remember me */}
           <label className="flex items-center gap-2 text-sm text-gray-600">
-            <input type="checkbox" className="accent-teal-600" />
+            <input type="checkbox" className="accent-teal-600" {...register("remember")} />
             Remember me for 30 days
           </label>
 
-          {/* Submit */}
           <button
             type="submit"
-            className="w-full bg-purple-600 text-white py-3 rounded-lg font-semibold hover:bg-purple-700 transition"
+            disabled={loading}
+            className="w-full bg-purple-600 text-white py-3 rounded-lg font-semibold hover:bg-purple-700 transition disabled:opacity-60"
           >
-            Create account
+            {loading ? "Creating account..." : "Create account"}
           </button>
         </form>
 
-        {/* Terms */}
+        {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
+        {message && <p className="mt-4 text-sm text-green-600">{message}</p>}
+
         <p className="text-xs text-gray-500 mt-6 text-center">
           By clicking continue, you agree to our{" "}
           <Link href="/terms" className="text-teal-600 underline">
@@ -125,7 +193,6 @@ export default function SignupForm() {
           .
         </p>
 
-        {/* Sign in */}
         <p className="text-sm text-center mt-6">
           Already have an account?{" "}
           <Link

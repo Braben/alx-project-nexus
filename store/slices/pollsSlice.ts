@@ -21,9 +21,40 @@ const initialState: PollState = {
   votesByPoll: {},
 };
 
-export const fetchPolls = createAsyncThunk("polls/fetchAll", async () => {
-  return await pollsApi.getPolls();
-});
+type FetchPollsArgs = { ownerId?: string } | undefined;
+
+export const fetchPolls = createAsyncThunk(
+  "polls/fetchAll",
+  async (args: FetchPollsArgs, { dispatch }) => {
+    const polls = args?.ownerId
+      ? await pollsApi.getUserPolls(args.ownerId)
+      : await pollsApi.getPolls();
+    const counts = await pollsApi.getPollCounts(polls.map((poll) => poll.id));
+
+    const countsByPoll = counts.reduce<Record<string, Record<string, number>>>(
+      (acc, row) => {
+        acc[row.poll_id] = acc[row.poll_id] ?? {};
+        acc[row.poll_id][row.option_id] = row.votes;
+        return acc;
+      },
+      {},
+    );
+
+    polls.forEach((poll) => {
+      const optionCounts = poll.candidates?.map(
+        (candidate) => countsByPoll[poll.id]?.[candidate.id] ?? 0,
+      );
+      dispatch(
+        setVoteCounts({
+          pollId: poll.id,
+          counts: optionCounts ?? [],
+        }),
+      );
+    });
+
+    return polls;
+  },
+);
 
 const pollsSlice = createSlice({
   name: "polls",
@@ -41,6 +72,10 @@ const pollsSlice = createSlice({
 
     addPoll: (state, action: PayloadAction<Poll>) => {
       state.items.push(action.payload);
+    },
+    removePoll: (state, action: PayloadAction<string>) => {
+      state.items = state.items.filter((poll) => poll.id !== action.payload);
+      delete state.votesByPoll[action.payload];
     },
     updatePoll: (
       state,
@@ -110,6 +145,7 @@ export const {
   setFilter,
   setSearch,
   addPoll,
+  removePoll,
   updatePoll,
   setVoteCounts,
   incrementVote,

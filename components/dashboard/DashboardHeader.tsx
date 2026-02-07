@@ -1,8 +1,14 @@
 interface DashboardHeaderProps {
   onCreate: () => void;
+  canCreate?: boolean;
+  disabledReason?: string;
 }
 
-export default function DashboardHeader({ onCreate }: DashboardHeaderProps) {
+export default function DashboardHeader({
+  onCreate,
+  canCreate = true,
+  disabledReason,
+}: DashboardHeaderProps) {
   return (
     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
       <div>
@@ -20,8 +26,14 @@ export default function DashboardHeader({ onCreate }: DashboardHeaderProps) {
       /> */}
 
         <button
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-          onClick={onCreate}
+          className={`px-4 py-2 rounded-lg text-white ${
+            canCreate
+              ? "bg-blue-600 hover:bg-blue-700"
+              : "bg-gray-400 cursor-not-allowed"
+          }`}
+          onClick={canCreate ? onCreate : undefined}
+          disabled={!canCreate}
+          title={!canCreate ? disabledReason : undefined}
         >
           Create Poll
         </button>

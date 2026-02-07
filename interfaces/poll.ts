@@ -6,6 +6,7 @@ export interface Poll {
   status: PollStatus;
 
   responses: number;
+  ownerId?: string;
 
   category?: string;
   description?: string;
