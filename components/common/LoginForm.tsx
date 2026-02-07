@@ -56,7 +56,11 @@ export default function LoginForm() {
         localStorage.removeItem("pp-session-only");
       }
 
-      await router.push("/dashboard");
+      const lastPage =
+        typeof window !== "undefined"
+          ? localStorage.getItem("pp-last-page")
+          : null;
+      await router.push(lastPage || "/dashboard");
     } finally {
       setLoading(false);
     }
@@ -78,7 +82,7 @@ export default function LoginForm() {
       options: {
         redirectTo:
           typeof window !== "undefined"
-            ? `${window.location.origin}/dashboard`
+            ? `${window.location.origin}/auth/callback?welcome=1`
             : undefined,
       },
     });

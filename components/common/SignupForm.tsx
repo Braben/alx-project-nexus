@@ -61,7 +61,11 @@ export default function SignupForm() {
       }
 
       setMessage("Check your email to confirm your account.");
-      await router.push("/dashboard");
+      const lastPage =
+        typeof window !== "undefined"
+          ? localStorage.getItem("pp-last-page")
+          : null;
+      await router.push(lastPage || "/dashboard");
     } finally {
       setLoading(false);
     }
@@ -84,7 +88,7 @@ export default function SignupForm() {
       options: {
         redirectTo:
           typeof window !== "undefined"
-            ? `${window.location.origin}/dashboard`
+            ? `${window.location.origin}/auth/callback?welcome=1`
             : undefined,
       },
     });
