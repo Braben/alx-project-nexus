@@ -5,7 +5,6 @@ import { Menu, X, BarChart3 } from "lucide-react";
 import { useSupabaseUser } from "@/hooks/useSupabaseUser";
 import { supabase } from "@/supabase/superbase-client";
 import { useToast } from "@/components/common/ToastProvider";
-import Image from "next/image";
 
 export default function Navbar() {
   const [open, setOpen] = useState(false);
@@ -85,7 +84,10 @@ export default function Navbar() {
               <Link href="/features" className="hover:text-blue-600 transition">
                 Features
               </Link>
-              <Link href="/solutions" className="hover:text-blue-600 transition">
+              <Link
+                href="/solutions"
+                className="hover:text-blue-600 transition"
+              >
                 Solutions
               </Link>
             </>
