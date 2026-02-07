@@ -12,6 +12,10 @@ import {
   updateCandidate,
 } from "@/store/slices/candidatesSlice";
 import { IoIosCloseCircleOutline } from "react-icons/io";
+import { supabase } from "@/supabase/superbase-client";
+import { useSupabaseUser } from "@/hooks/useSupabaseUser";
+import { useToast } from "@/components/common/ToastProvider";
+import { z } from "zod";
 
 interface CreatePollModalProps {
   open: boolean;
@@ -59,7 +63,10 @@ export default function CreatePollModal({
   );
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [shareBaseUrl, setShareBaseUrl] = useState("");
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const { user } = useSupabaseUser();
+  const { showToast } = useToast();
 
   useEffect(() => {
     if (!open) return;
@@ -92,7 +99,6 @@ export default function CreatePollModal({
   useEffect(() => {
     if (!open) {
       setShowCloseConfirm(false);
-      setToastMessage(null);
     }
   }, [open]);
 
@@ -160,6 +166,29 @@ export default function CreatePollModal({
     return Boolean(baseIsDirty || candidateIsDirty);
   }, [formState, mode, normalizedCandidates, open, poll, statusValue]);
 
+  const isLocked = useMemo(
+    () => mode === "edit" && (poll?.responses ?? 0) > 0,
+    [mode, poll?.responses],
+  );
+  const candidatesChanged = useMemo(() => {
+    if (mode !== "edit" || !poll) return true;
+    const normalized = normalizedCandidates.map((candidate) => ({
+      ...candidate,
+      name: candidate.name.trim(),
+      affiliation: candidate.affiliation?.trim() || "",
+    }));
+    const original = (poll.candidates ?? []).map((candidate) => ({
+      ...candidate,
+      name: candidate.name.trim(),
+      affiliation: candidate.affiliation?.trim() || "",
+    }));
+    return JSON.stringify(normalized) !== JSON.stringify(original);
+  }, [mode, normalizedCandidates, poll]);
+  const isVerified = Boolean(
+    user?.email_confirmed_at ||
+      (user as { confirmed_at?: string } | null)?.confirmed_at,
+  );
+
   useEffect(() => {
     if (!open) return;
 
@@ -210,47 +239,78 @@ export default function CreatePollModal({
     }));
   };
 
-  const validateDates = (start: string, end: string) => {
-    if (!start || !end) {
-      setDateError("");
-      return true;
-    }
+  const pollSchema = z
+    .object({
+      title: z.string().min(3, "Title must be at least 3 characters."),
+      candidates: z
+        .array(z.string().min(1))
+        .min(2, "Please add at least 2 options."),
+      startDate: z.string().optional(),
+      endDate: z.string().optional(),
+    })
+    .superRefine((data, ctx) => {
+      if (!data.startDate || !data.endDate) return;
+      const start = new Date(data.startDate);
+      const end = new Date(data.endDate);
+      if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["dateRange"],
+          message: "Enter valid start and end dates.",
+        });
+        return;
+      }
+      if (end <= start) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["dateRange"],
+          message: "End date must be after start date.",
+        });
+      }
+    });
 
-    const startDate = new Date(start);
-    const endDate = new Date(end);
+  const validateForm = () => {
+    const candidateNames = candidates.map((candidate) => candidate.name.trim());
+    const result = pollSchema.safeParse({
+      title: formState.title.trim(),
+      candidates: candidateNames.filter((name) => name.length > 0),
+      startDate: formState.startDate.trim() || undefined,
+      endDate: formState.endDate.trim() || undefined,
+    });
 
-    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
-      setDateError("Enter valid start and end dates.");
-      return false;
-    }
-
-    if (endDate <= startDate) {
-      setDateError("End date must be after start date.");
-      return false;
-    }
-
+    setTitleError("");
+    setCandidateError("");
     setDateError("");
-    return true;
+
+    if (result.success) return true;
+
+    result.error.issues.forEach((issue) => {
+      if (issue.path.includes("title")) setTitleError(issue.message);
+      if (issue.path.includes("candidates")) setCandidateError(issue.message);
+      if (issue.path.includes("dateRange")) setDateError(issue.message);
+    });
+
+    return false;
   };
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
+    if (submitting) return;
     const trimmedTitle = formState.title.trim();
-    if (!trimmedTitle) {
-      setTitleError("Title is required.");
+    const filledCandidates = candidates.filter(
+      (candidate) => candidate.name.trim().length > 0,
+    );
+    if (!validateForm()) {
       firstInputRef.current?.focus();
       return;
     }
 
-    const filledCandidates = candidates.filter(
-      (candidate) => candidate.name.trim().length > 0,
-    );
-    if (filledCandidates.length < 2) {
-      setCandidateError("Please add at least 2 options.");
+    if (!user) {
+      setSubmitError("Please sign in to create or edit polls.");
       return;
     }
-
-    if (!validateDates(formState.startDate.trim(), formState.endDate.trim())) {
+    if (!isVerified) {
+      setSubmitError("Please verify your email before creating polls.");
       return;
     }
 
@@ -270,37 +330,139 @@ export default function CreatePollModal({
       })),
     };
 
+    setSubmitting(true);
+    setSubmitError(null);
+
     if (mode === "edit" && poll) {
+      if (isLocked && candidatesChanged) {
+        setSubmitError(
+          "Poll options are locked because voting has started.",
+        );
+        setSubmitting(false);
+        return;
+      }
+      const { error: updateError, data: updatedPoll } = await supabase
+        .from("polls")
+        .update({
+          title: payload.title,
+          category: payload.category ?? null,
+          description: payload.description ?? null,
+          start_date: payload.startDate ?? null,
+          end_date: payload.endDate ?? null,
+          visibility: payload.visibility ?? "instant",
+          election_mode: payload.electionMode ?? true,
+          status: payload.status,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", poll.id)
+        .select()
+        .maybeSingle();
+
+      if (updateError || !updatedPoll) {
+        setSubmitError(updateError?.message ?? "Unable to update poll.");
+        setSubmitting(false);
+        return;
+      }
+
+      if (candidatesChanged) {
+        const { error: deleteError } = await supabase
+          .from("poll_options")
+          .delete()
+          .eq("poll_id", poll.id);
+        if (deleteError) {
+          setSubmitError(deleteError.message);
+          setSubmitting(false);
+          return;
+        }
+        const optionsPayload = payload.candidates.map((candidate, index) => ({
+          poll_id: poll.id,
+          label: candidate.name,
+          affiliation: candidate.affiliation ?? null,
+          sort_order: index,
+        }));
+        const { error: optionsError } = await supabase
+          .from("poll_options")
+          .insert(optionsPayload);
+
+        if (optionsError) {
+          setSubmitError(optionsError.message);
+          setSubmitting(false);
+          return;
+        }
+
+        showToast("Poll options updated", "success");
+      }
+
       dispatch(
         updatePoll({
           id: poll.id,
           changes: {
             ...payload,
-            updatedAt: new Date().toISOString(),
+            updatedAt: updatedPoll.updated_at ?? new Date().toISOString(),
           },
         }),
       );
       onClose();
     } else {
-      const createdId = `${Date.now()}`;
+      const { data: createdPoll, error: createError } = await supabase
+        .from("polls")
+        .insert({
+          owner_id: user.id,
+          title: payload.title,
+          category: payload.category ?? null,
+          description: payload.description ?? null,
+          start_date: payload.startDate ?? null,
+          end_date: payload.endDate ?? null,
+          visibility: payload.visibility ?? "instant",
+          election_mode: payload.electionMode ?? true,
+          status: payload.status,
+        })
+        .select()
+        .single();
+
+      if (createError || !createdPoll) {
+        setSubmitError(createError?.message ?? "Unable to create poll.");
+        setSubmitting(false);
+        return;
+      }
+
+      const optionsPayload = payload.candidates.map((candidate, index) => ({
+        poll_id: createdPoll.id,
+        label: candidate.name,
+        affiliation: candidate.affiliation ?? null,
+        sort_order: index,
+      }));
+      const { error: optionsError } = await supabase
+        .from("poll_options")
+        .insert(optionsPayload);
+
+      if (optionsError) {
+        setSubmitError(optionsError.message);
+        setSubmitting(false);
+        return;
+      }
+
+      showToast("Poll options saved", "success");
+
       dispatch(
         addPoll({
-          id: createdId,
+          id: createdPoll.id,
           responses: 0,
           ...payload,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
+          createdAt: createdPoll.created_at ?? new Date().toISOString(),
+          updatedAt: createdPoll.updated_at ?? new Date().toISOString(),
+          ownerId: createdPoll.owner_id ?? user.id,
         }),
       );
+
       if (shareBaseUrl) {
-        const link = `${shareBaseUrl}/polls/${createdId}`;
+        const link = `${shareBaseUrl}/polls/${createdPoll.id}`;
         try {
           await navigator.clipboard.writeText(link);
-          setToastMessage("Share link copied");
+          showToast("Share link copied", "success");
         } catch {
-          setToastMessage("Poll created");
+          showToast("Poll created", "success");
         }
-        setTimeout(() => setToastMessage(null), 2000);
       }
       onClose();
     }
@@ -310,6 +472,7 @@ export default function CreatePollModal({
     setCandidateError("");
     setDateError("");
     dispatch(resetCandidates());
+    setSubmitting(false);
   };
 
   const handleRequestClose = () => {
@@ -372,6 +535,11 @@ export default function CreatePollModal({
             onSubmit={handleSubmit}
             className="rounded-2xl border bg-white p-6"
           >
+            {isLocked && (
+              <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                Voting has started for this poll. Editing is locked.
+              </div>
+            )}
             <div className="space-y-5">
               <div>
                 <label className="text-xs font-semibold text-gray-600">
@@ -384,7 +552,8 @@ export default function CreatePollModal({
                     updateField("title", event.target.value);
                     if (titleError) setTitleError("");
                   }}
-                  className="mt-2 w-full rounded-lg border px-3 py-2 text-sm"
+                  disabled={isLocked || submitting}
+                  className="mt-2 w-full rounded-lg border px-3 py-2 text-sm disabled:bg-gray-100"
                   placeholder="Class President 2024"
                 />
                 {titleError && (
@@ -401,7 +570,8 @@ export default function CreatePollModal({
                   onChange={(event) =>
                     updateField("category", event.target.value)
                   }
-                  className="mt-2 w-full rounded-lg border px-3 py-2 text-sm"
+                  disabled={isLocked || submitting}
+                  className="mt-2 w-full rounded-lg border px-3 py-2 text-sm disabled:bg-gray-100"
                   placeholder="Education"
                 />
               </div>
@@ -427,7 +597,8 @@ export default function CreatePollModal({
                   onChange={(event) =>
                     updateField("description", event.target.value)
                   }
-                  className="mt-2 min-h-[90px] w-full rounded-lg border px-3 py-2 text-sm"
+                  disabled={isLocked || submitting}
+                  className="mt-2 min-h-[90px] w-full rounded-lg border px-3 py-2 text-sm disabled:bg-gray-100"
                   placeholder="Vote for your favorite candidate for the 2024 academic year."
                 />
               </div>
@@ -452,6 +623,7 @@ export default function CreatePollModal({
                     updateField("electionMode", !formState.electionMode);
                     setCandidateError("");
                   }}
+                  disabled={isLocked || submitting}
                 >
                   <span
                     className={`absolute top-1 h-4 w-4 rounded-full bg-white transition ${
@@ -507,7 +679,8 @@ export default function CreatePollModal({
                               }),
                             );
                           }}
-                          className="w-full rounded-lg border px-3 py-2 text-sm"
+                          disabled={isLocked || submitting}
+                          className="w-full rounded-lg border px-3 py-2 text-sm disabled:bg-gray-100"
                           placeholder={
                             formState.electionMode
                               ? "Candidate name"
@@ -526,7 +699,8 @@ export default function CreatePollModal({
                                 }),
                               )
                             }
-                            className="w-full rounded-lg border px-3 py-2 text-sm"
+                            disabled={isLocked || submitting}
+                            className="w-full rounded-lg border px-3 py-2 text-sm disabled:bg-gray-100"
                             placeholder="Party / affiliation"
                           />
                         )}
@@ -539,6 +713,7 @@ export default function CreatePollModal({
                   type="button"
                   className="mt-3 w-full rounded-xl border border-dashed px-3 py-2 text-sm text-gray-500 hover:bg-gray-50"
                   onClick={() => dispatch(addCandidate())}
+                  disabled={isLocked || submitting}
                 >
                   {formState.electionMode ? "Add Candidate" : "Add Option"}
                 </button>
@@ -564,7 +739,8 @@ export default function CreatePollModal({
                           validateDates(event.target.value, formState.endDate);
                         }
                       }}
-                      className="mt-2 w-full rounded-lg border px-3 py-2 text-sm"
+                      disabled={isLocked || submitting}
+                      className="mt-2 w-full rounded-lg border px-3 py-2 text-sm disabled:bg-gray-100"
                       placeholder="10/24/2023 09:00 AM"
                     />
                   </div>
@@ -578,7 +754,8 @@ export default function CreatePollModal({
                         updateField("endDate", event.target.value);
                         validateDates(formState.startDate, event.target.value);
                       }}
-                      className="mt-2 w-full rounded-lg border px-3 py-2 text-sm"
+                      disabled={isLocked || submitting}
+                      className="mt-2 w-full rounded-lg border px-3 py-2 text-sm disabled:bg-gray-100"
                       placeholder="10/31/2023 05:00 PM"
                     />
                     {dateError && (
@@ -602,6 +779,7 @@ export default function CreatePollModal({
                       onChange={(event) =>
                         updateField("visibility", event.target.value)
                       }
+                      disabled={submitting}
                     />
                     Show results instantly
                   </label>
@@ -614,6 +792,7 @@ export default function CreatePollModal({
                       onChange={(event) =>
                         updateField("visibility", event.target.value)
                       }
+                      disabled={submitting}
                     />
                     Hide results until finished
                   </label>
@@ -625,6 +804,7 @@ export default function CreatePollModal({
                   type="button"
                   className="rounded-lg border px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
                   onClick={handleRequestClose}
+                  disabled={submitting}
                 >
                   Cancel
                 </button>
@@ -640,6 +820,7 @@ export default function CreatePollModal({
                     onClick={() =>
                       setStatusValue(statusValue === "Live" ? "Draft" : "Live")
                     }
+                    disabled={submitting}
                   >
                     <span
                       className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition ${
@@ -659,17 +840,26 @@ export default function CreatePollModal({
                   onClick={() =>
                     setStatusValue(statusValue === "Ended" ? "Live" : "Ended")
                   }
+                  disabled={submitting}
                 >
                   {statusValue === "Ended" ? "Reopen Poll" : "End Poll"}
                 </button>
                 <button
                   type="submit"
-                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
+                  disabled={submitting}
+                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700 disabled:opacity-60"
                 >
-                  {mode === "edit" ? "Save Changes" : "Create Poll"}
+                  {submitting
+                    ? "Saving..."
+                    : mode === "edit"
+                      ? "Save Changes"
+                      : "Create Poll"}
                 </button>
               </div>
             </div>
+            {submitError && (
+              <p className="mt-3 text-sm text-red-600">{submitError}</p>
+            )}
           </form>
         </div>
       </div>
@@ -705,11 +895,6 @@ export default function CreatePollModal({
         </div>
       )}
 
-      {toastMessage && (
-        <div className="fixed bottom-6 right-6 rounded-lg bg-gray-900 px-4 py-2 text-sm text-white shadow-lg">
-          {toastMessage}
-        </div>
-      )}
     </div>
   );
 }

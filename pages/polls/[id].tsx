@@ -8,14 +8,20 @@ import { usePollShare } from "@/hooks/usePollShare";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
   fetchPolls,
+  incrementVote,
   setVoteCounts,
+  updatePoll,
 } from "@/store/slices/pollsSlice";
+import { supabase } from "@/supabase/superbase-client";
+import { useSupabaseUser } from "@/hooks/useSupabaseUser";
+import { pollsApi } from "@/constants/pollsAPI";
 
 export default function PollDetailsPage() {
   const router = useRouter();
   const { id } = router.query;
 
   const dispatch = useAppDispatch();
+  const { user } = useSupabaseUser();
   const { items = [], loading, votesByPoll } = useAppSelector(
     (state) => state.polls,
   );
@@ -24,6 +30,10 @@ export default function PollDetailsPage() {
   const [lastVotedAt, setLastVotedAt] = useState<string | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
   const [votedIndex, setVotedIndex] = useState<number | null>(null);
+  const [votedOptionId, setVotedOptionId] = useState<string | null>(null);
+  const [voteError, setVoteError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [deviceId, setDeviceId] = useState<string | null>(null);
   const {
     activePoll,
     shareUrl,
@@ -31,7 +41,6 @@ export default function PollDetailsPage() {
     copy,
     shareModalOpen,
     closeShareModal,
-    shareToast,
   } = usePollShare();
 
   useEffect(() => {
@@ -45,28 +54,17 @@ export default function PollDetailsPage() {
     if (!id || Array.isArray(id)) return;
     setError("");
 
-    const voteKey = `poll-vote:${id}`;
-    const votesKey = `poll-votes:${id}`;
     try {
-      const existingVote = localStorage.getItem(voteKey);
-      setHasVoted(Boolean(existingVote));
-      setLastVotedAt(existingVote);
-      const storedVotes = localStorage.getItem(votesKey);
-      if (storedVotes) {
-        const parsedVotes = JSON.parse(storedVotes) as number[];
-        if (Array.isArray(parsedVotes)) {
-          dispatch(setVoteCounts({ pollId: id, counts: parsedVotes }));
-        }
-      }
-      const storedSelection = localStorage.getItem(`${voteKey}:selection`);
-      if (storedSelection) {
-        const parsedIndex = Number(storedSelection);
-        setVotedIndex(Number.isNaN(parsedIndex) ? null : parsedIndex);
+      const existingDeviceId = localStorage.getItem("pp-device-id");
+      if (existingDeviceId) {
+        setDeviceId(existingDeviceId);
+      } else if (typeof crypto !== "undefined" && crypto.randomUUID) {
+        const newId = crypto.randomUUID();
+        localStorage.setItem("pp-device-id", newId);
+        setDeviceId(newId);
       }
     } catch {
-      setHasVoted(false);
-      setLastVotedAt(null);
-      setVotedIndex(null);
+      setDeviceId(null);
     }
   }, [id]);
 
@@ -92,6 +90,25 @@ export default function PollDetailsPage() {
     }));
   }, [poll, votesByPoll]);
 
+  const resolvedVotedIndex = useMemo(() => {
+    if (votedIndex !== null) return votedIndex;
+    if (!votedOptionId || !poll?.candidates?.length) return null;
+    const index = poll.candidates.findIndex(
+      (candidate) => candidate.id === votedOptionId,
+    );
+    return index === -1 ? null : index;
+  }, [poll?.candidates, votedIndex, votedOptionId]);
+
+  const voterOptions = useMemo(() => {
+    if (!options.length) return [];
+    if (!hasVoted || resolvedVotedIndex === null) return options;
+    if (poll?.visibility !== "hidden" || poll?.status === "Ended") {
+      return options;
+    }
+    const selectedOption = options[resolvedVotedIndex];
+    return selectedOption ? [selectedOption] : options;
+  }, [hasVoted, options, poll?.status, poll?.visibility, resolvedVotedIndex]);
+
   useEffect(() => {
     if (!poll?.candidates?.length) {
       return;
@@ -107,46 +124,175 @@ export default function PollDetailsPage() {
     dispatch(setVoteCounts({ pollId: poll.id, counts: normalized }));
   }, [dispatch, poll, votesByPoll]);
 
-  const handleVote = () => {
+  useEffect(() => {
+    if (!id || Array.isArray(id)) return;
+    if (!deviceId && !user) return;
+
+    const checkExistingVote = async () => {
+      const voteQuery = supabase
+        .from("votes")
+        .select("option_id, created_at")
+        .eq("poll_id", id);
+
+      const { data, error } = user
+        ? await voteQuery.eq("voter_id", user.id).maybeSingle()
+        : await voteQuery.eq("device_id", deviceId).maybeSingle();
+
+      if (error) return;
+      if (!data) {
+        setHasVoted(false);
+        setLastVotedAt(null);
+        setVotedIndex(null);
+        return;
+      }
+
+      setHasVoted(true);
+      setLastVotedAt(data.created_at ?? null);
+      setVotedOptionId(data.option_id ?? null);
+      const index = poll?.candidates?.findIndex(
+        (candidate) => candidate.id === data.option_id,
+      );
+      setVotedIndex(index ?? null);
+    };
+
+    checkExistingVote();
+  }, [deviceId, id, poll?.candidates, user]);
+
+  useEffect(() => {
+    if (!id || Array.isArray(id)) return;
+
+    const channel = supabase
+      .channel(`poll-${id}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "votes" },
+        (payload) => {
+          const vote = payload.new as {
+            poll_id: string;
+            option_id: string;
+            device_id?: string | null;
+            voter_id?: string | null;
+          };
+          if (vote.poll_id !== id) return;
+          if (vote.device_id && vote.device_id === deviceId) return;
+          if (user?.id && vote.voter_id === user.id) return;
+          if (!poll?.candidates?.length) return;
+          const optionIndex = poll.candidates.findIndex(
+            (candidate) => candidate.id === vote.option_id,
+          );
+          if (optionIndex === -1) return;
+          dispatch(incrementVote({ pollId: id, index: optionIndex }));
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "polls" },
+        (payload) => {
+          const updated = payload.new as {
+            id: string;
+            status: "Live" | "Draft" | "Ended" | "Archived";
+            visibility: "instant" | "hidden";
+            updated_at?: string | null;
+          };
+          if (updated.id !== id) return;
+          dispatch(
+            updatePoll({
+              id: updated.id,
+              changes: {
+                status: updated.status,
+                visibility: updated.visibility,
+                updatedAt: updated.updated_at ?? undefined,
+              },
+            }),
+          );
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [deviceId, dispatch, id, poll?.candidates, user?.id]);
+
+  const handleVote = async () => {
     if (selected === null) return;
     if (!id || Array.isArray(id)) return;
     if (poll?.status === "Ended") return;
+    if (submitting) return;
+    if (!deviceId && !user) {
+      setVoteError("Unable to identify device. Please refresh.");
+      return;
+    }
 
-    const voteKey = `poll-vote:${id}`;
-    const votesKey = `poll-votes:${id}`;
+    setSubmitting(true);
+    setVoteError(null);
+
+    const candidate = poll?.candidates?.[selected];
+    if (!candidate) {
+      setVoteError("Please select a valid option.");
+      setSubmitting(false);
+      return;
+    }
+
+    const { error } = await supabase.from("votes").insert({
+      poll_id: id,
+      option_id: candidate.id,
+      voter_id: user?.id ?? null,
+      device_id: deviceId,
+    });
+
+    if (error) {
+      if (error.code === "23505") {
+        setVoteError("You have already voted on this poll.");
+        setHasVoted(true);
+      } else {
+        setVoteError(error.message);
+      }
+      setSubmitting(false);
+      return;
+    }
+
+    dispatch(incrementVote({ pollId: id, index: selected }));
     const voteTime = new Date().toISOString();
-    const existingCounts = votesByPoll[id] ?? [];
-    const nextCounts = Array.from(
-      {
-        length: Math.max(
-          existingCounts.length,
-          poll?.candidates?.length ?? 0,
-          selected + 1,
-        ),
-      },
-      (_, idx) => existingCounts[idx] ?? 0,
-    ).map((count, index) => (index === selected ? count + 1 : count));
+    setHasVoted(true);
+    setLastVotedAt(voteTime);
+    setVotedIndex(selected);
+    setSubmitting(false);
 
-    dispatch(setVoteCounts({ pollId: id, counts: nextCounts }));
     try {
-      localStorage.setItem(votesKey, JSON.stringify(nextCounts));
-      localStorage.setItem(voteKey, voteTime);
-      localStorage.setItem(`${voteKey}:selection`, String(selected));
-      setHasVoted(true);
-      setLastVotedAt(voteTime);
-      setVotedIndex(selected);
+      const counts = await pollsApi.getPollCounts([id]);
+      const countsByOption = counts.reduce<Record<string, number>>(
+        (acc, row) => {
+          acc[row.option_id] = row.votes;
+          return acc;
+        },
+        {},
+      );
+      const normalized = poll?.candidates?.map(
+        (candidate) => countsByOption[candidate.id] ?? 0,
+      );
+      if (normalized) {
+        dispatch(setVoteCounts({ pollId: id, counts: normalized }));
+      }
     } catch {
-      setHasVoted(true);
-      setLastVotedAt(voteTime);
-      setVotedIndex(selected);
+      // Ignore reconcile errors.
     }
   };
+
+  const isOwner = Boolean(user && poll?.ownerId === user.id);
+  const canViewResults =
+    poll?.visibility !== "hidden" || poll?.status === "Ended" || isOwner;
 
   return (
     <main className="min-h-screen bg-gray-50 py-16 px-6">
       <div className="max-w-2xl mx-auto bg-white p-8 rounded-2xl shadow-sm">
         {loading && (
-          <p className="text-center text-gray-500">Loading poll...</p>
+          <div className="space-y-4 animate-pulse">
+            <div className="h-6 w-3/4 mx-auto rounded bg-gray-200" />
+            <div className="h-3 w-1/2 mx-auto rounded bg-gray-200" />
+            <div className="h-10 w-32 mx-auto rounded bg-gray-200" />
+            <div className="h-28 rounded bg-gray-100" />
+          </div>
         )}
 
         {!loading && error && (
@@ -203,15 +349,21 @@ export default function PollDetailsPage() {
                       Last vote: {new Date(lastVotedAt).toLocaleString()}
                     </span>
                   )}
-                  {votedIndex !== null &&
-                    options[votedIndex] &&
-                    options[votedIndex].label && (
+                  {resolvedVotedIndex !== null &&
+                    options[resolvedVotedIndex] &&
+                    options[resolvedVotedIndex].label && (
                       <span className="block text-xs text-gray-500 mt-1">
-                        You voted for {options[votedIndex].label}.
+                        You voted for {options[resolvedVotedIndex].label}.
                       </span>
                     )}
                 </div>
-                <PollResults options={options} />
+                {canViewResults ? (
+                  <PollResults options={options} />
+                ) : (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                    Results are hidden by the host.
+                  </div>
+                )}
               </div>
             )}
 
@@ -223,6 +375,7 @@ export default function PollDetailsPage() {
                     selected={selected}
                     onSelect={setSelected}
                     onVote={handleVote}
+                    disabled={submitting}
                   />
                 ) : (
                   <div className="space-y-6">
@@ -233,28 +386,42 @@ export default function PollDetailsPage() {
                           Last vote: {new Date(lastVotedAt).toLocaleString()}
                         </span>
                       )}
-                      {votedIndex !== null &&
-                        options[votedIndex] &&
-                        options[votedIndex].label && (
+                      {resolvedVotedIndex !== null &&
+                        options[resolvedVotedIndex] &&
+                        options[resolvedVotedIndex].label && (
                           <span className="block text-xs text-blue-600 mt-1">
-                            You voted for {options[votedIndex].label}.
+                            You voted for {options[resolvedVotedIndex].label}.
                           </span>
                         )}
                     </div>
-                    <PollResults options={options} />
+                    {poll.visibility === "hidden" && poll.status !== "Ended" ? (
+                      <>
+                        <PollVote
+                          options={voterOptions}
+                          selected={0}
+                          onSelect={() => undefined}
+                          onVote={() => undefined}
+                          disabled
+                        />
+                        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                          Thanks for voting! Results will be revealed by the host.
+                        </div>
+                      </>
+                    ) : (
+                      <PollResults options={voterOptions} />
+                    )}
                   </div>
                 )}
               </>
             )}
+            {voteError && (
+              <p className="mt-4 text-center text-sm text-red-600">
+                {voteError}
+              </p>
+            )}
           </>
         )}
       </div>
-
-      {shareToast && (
-        <div className="fixed bottom-6 right-6 rounded-lg bg-gray-900 px-4 py-2 text-sm text-white shadow-lg">
-          {shareToast}
-        </div>
-      )}
 
       {shareModalOpen && activePoll && (
         <SharePollModal

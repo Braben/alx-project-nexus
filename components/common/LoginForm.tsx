@@ -1,34 +1,85 @@
-import { FormEvent, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/router";
 import { FcGoogle } from "react-icons/fc";
+import { supabase } from "@/supabase/superbase-client";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
 
 export default function LoginForm() {
-  const [email, setEmail] = useState<string>("");
-  const [password, setPassword] = useState<string>("");
-  const [remember, setRemember] = useState<boolean>(false);
+  const router = useRouter();
   const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const schema = z.object({
+    email: z.string().email("Enter a valid email."),
+    password: z.string().min(6, "Password must be at least 6 characters."),
+    remember: z.boolean().optional(),
+  });
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    getValues,
+  } = useForm<z.infer<typeof schema>>({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      email: "",
+      password: "",
+      remember: false,
+    },
+  });
+
+  const onSubmit = async (values: z.infer<typeof schema>) => {
+    if (loading) return;
 
     try {
-      setEmail(email);
-      setPassword(password);
-      setRemember(remember);
       setLoading(true);
+      setError(null);
 
-      // 👉 Replace with your auth logic (Firebase / API / Redux)
-      console.log({ email, password, remember });
-      window.location.href = "/dashboard";
+      const { error } = await supabase.auth.signInWithPassword({
+        email: values.email,
+        password: values.password,
+      });
 
-      await new Promise((r) => setTimeout(r, 1000));
+      if (error) {
+        setError(error.message);
+        return;
+      }
+
+      if (!values.remember) {
+        localStorage.setItem("pp-session-only", "true");
+        sessionStorage.setItem("pp-session-only", "true");
+      } else {
+        localStorage.removeItem("pp-session-only");
+      }
+
+      await router.push("/dashboard");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGoogleLogin = () => {
-    console.log("Google login clicked");
+  const handleGoogleLogin = async () => {
+    if (loading) return;
+    setLoading(true);
+    setError(null);
+    const values = getValues();
+    if (!values.remember) {
+      localStorage.setItem("pp-session-only", "true");
+      sessionStorage.setItem("pp-session-only", "true");
+    } else {
+      localStorage.removeItem("pp-session-only");
+    }
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+    });
+    if (error) {
+      setError(error.message);
+      setLoading(false);
+    }
   };
 
   return (
@@ -36,20 +87,12 @@ export default function LoginForm() {
       className="w-full max-w-md bg-white rounded-2xl shadow-sm  p-8"
       aria-label="Login form"
     >
-      {/* Logo */}
-      {/* <div className="flex justify-center mb-6">
-        <div className="w-10 h-10 bg-teal-600 rounded-md" />
-      </div> */}
-
-      {/* Heading */}
       <header className="text-center mb-6">
         <h1 className="text-2xl font-semibold">Welcome back</h1>
         <p className="text-sm text-gray-500 mt-1">
           Enter your credentials to access your polls
         </p>
       </header>
-
-      {/* Google */}
 
       <button
         onClick={handleGoogleLogin}
@@ -60,16 +103,14 @@ export default function LoginForm() {
         <FcGoogle className="inline-block w-6 h-6 mr-3 align-middle" />
         Continue with Google
       </button>
-      {/* Divider */}
+
       <div className="my-6 flex items-center text-xs text-gray-400">
         <span className="flex-1 h-px bg-gray-200" />
         <span className="px-3">OR CONTINUE WITH EMAIL</span>
         <span className="flex-1 h-px bg-gray-200" />
       </div>
 
-      {/* Form */}
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Email */}
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div>
           <label htmlFor="email" className="block text-sm font-medium mb-1">
             Email
@@ -80,11 +121,14 @@ export default function LoginForm() {
             required
             autoComplete="email"
             placeholder="olivia@example.com"
+            {...register("email")}
             className="w-full border rounded-lg px-3 py-2 focus:ring-1 border-gray-300 focus:ring-gray-500 focus:outline-none"
           />
+          {errors.email && (
+            <p className="mt-1 text-xs text-red-600">{errors.email.message}</p>
+          )}
         </div>
 
-        {/* Password */}
         <div>
           <label htmlFor="password" className="block text-sm font-medium mb-1">
             Password
@@ -93,20 +137,23 @@ export default function LoginForm() {
             id="password"
             type="password"
             required
-            autoComplete="new-password"
-            placeholder="••••••••"
-            onChange={() => setPassword("")}
+            autoComplete="current-password"
+            placeholder="********"
+            {...register("password")}
             className="w-full border rounded-lg px-3 py-2 focus:ring-1 border-gray-300 focus:ring-gray-500 focus:outline-none"
           />
+          {errors.password && (
+            <p className="mt-1 text-xs text-red-600">
+              {errors.password.message}
+            </p>
+          )}
         </div>
 
-        {/* Remember + Forgot */}
         <div className="flex items-center justify-between text-sm">
           <label className="flex items-center gap-2 text-gray-600">
             <input
               type="checkbox"
-              checked={remember}
-              onChange={() => setRemember(!remember)}
+              {...register("remember")}
               className="accent-teal-600"
             />
             Remember me
@@ -120,7 +167,6 @@ export default function LoginForm() {
           </Link>
         </div>
 
-        {/* Submit */}
         <button
           type="submit"
           disabled={loading}
@@ -130,7 +176,8 @@ export default function LoginForm() {
         </button>
       </form>
 
-      {/* Footer */}
+      {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
+
       <p className="text-center text-sm text-gray-500 mt-6">
         Don't have an account?{" "}
         <Link

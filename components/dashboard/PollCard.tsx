@@ -6,6 +6,9 @@ interface PollCardProps {
   onEdit?: (poll: Poll) => void;
   onShare?: (poll: Poll) => void;
   onResults?: (poll: Poll) => void;
+  onEnd?: (poll: Poll) => void;
+  onDelete?: (poll: Poll) => void;
+  onToggleVisibility?: (poll: Poll) => void;
   onExport?: (poll: Poll) => void;
   onView?: (poll: Poll) => void;
 }
@@ -15,6 +18,9 @@ export default function PollCard({
   onEdit,
   onShare,
   onResults,
+  onEnd,
+  onDelete,
+  onToggleVisibility,
   onExport,
   onView,
 }: PollCardProps) {
@@ -96,6 +102,22 @@ export default function PollCard({
         </div>
       </div>
 
+      {(status === "Live" || status === "Ended") &&
+        typeof poll.visibility !== "undefined" && (
+        <div className="mt-3 flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 text-xs text-gray-600">
+          <span>
+            Results: {poll.visibility === "hidden" ? "Hidden" : "Visible"}
+          </span>
+          <button
+            type="button"
+            className="rounded-md border px-2 py-1 text-xs text-gray-600 hover:bg-white"
+            onClick={() => onToggleVisibility?.(poll)}
+          >
+            {poll.visibility === "hidden" ? "Show" : "Hide"}
+          </button>
+        </div>
+      )}
+
       <div className="mt-4 flex items-center justify-between">
         {status === "Live" && (
           <>
@@ -110,25 +132,62 @@ export default function PollCard({
             <button
               type="button"
               className="text-sm font-medium text-gray-500 hover:text-gray-700"
+              onClick={() => onEdit?.(poll)}
+            >
+              Edit
+            </button>
+            <button
+              type="button"
+              className="text-sm font-medium text-gray-500 hover:text-gray-700"
               onClick={() => onResults?.(poll)}
             >
               Results
+            </button>
+            <button
+              type="button"
+              className="text-sm font-medium text-red-500 hover:text-red-600"
+              onClick={() => onEnd?.(poll)}
+            >
+              End Poll
             </button>
           </>
         )}
 
         {status === "Draft" && (
-          <button
-            type="button"
-            className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700 hover:bg-blue-100"
-            onClick={() => onEdit?.(poll)}
-          >
-            Edit Poll
-          </button>
+          <>
+            <button
+              type="button"
+              className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700 hover:bg-blue-100"
+              onClick={() => onEdit?.(poll)}
+            >
+              Edit Poll
+            </button>
+            <button
+              type="button"
+              className="text-sm font-medium text-red-500 hover:text-red-600"
+              onClick={() => onDelete?.(poll)}
+            >
+              Delete
+            </button>
+          </>
         )}
 
         {status === "Ended" && (
           <>
+            <button
+              type="button"
+              className="text-sm font-medium text-gray-500 hover:text-gray-700"
+              onClick={() => onEdit?.(poll)}
+            >
+              Edit
+            </button>
+            <button
+              type="button"
+              className="text-sm font-medium text-emerald-600 hover:text-emerald-700"
+              onClick={() => onEnd?.(poll)}
+            >
+              Reopen
+            </button>
             <button
               type="button"
               className="rounded-lg border px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
@@ -139,9 +198,16 @@ export default function PollCard({
             <button
               type="button"
               className="text-sm font-medium text-gray-500 hover:text-gray-700"
-              onClick={() => onView?.(poll)}
+              onClick={() => onResults?.(poll)}
             >
-              View
+              Results
+            </button>
+            <button
+              type="button"
+              className="text-sm font-medium text-red-500 hover:text-red-600"
+              onClick={() => onDelete?.(poll)}
+            >
+              Delete
             </button>
           </>
         )}
@@ -150,9 +216,9 @@ export default function PollCard({
           <button
             type="button"
             className="text-sm font-medium text-gray-500 hover:text-gray-700"
-            onClick={() => onView?.(poll)}
+            onClick={() => onResults?.(poll)}
           >
-            View
+            Results
           </button>
         )}
       </div>

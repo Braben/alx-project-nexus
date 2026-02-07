@@ -1,6 +1,7 @@
 import { FaFacebookF, FaWhatsapp } from "react-icons/fa";
 import { FaLinkedinIn, FaTelegramPlane } from "react-icons/fa";
 import { FaXTwitter } from "react-icons/fa6";
+import { QRCodeCanvas } from "qrcode.react";
 
 interface SharePollModalProps {
   open: boolean;
@@ -117,6 +118,10 @@ export default function SharePollModal({
             </span>
             Copy Link
           </button>
+        </div>
+        <div className="mt-4 flex flex-col items-center gap-2">
+          <QRCodeCanvas value={shareUrl} size={120} />
+          <p className="text-xs text-gray-500">Scan to open the poll</p>
         </div>
         <div className="mt-4 flex items-center justify-end">
           <button
