@@ -269,6 +269,25 @@ export default function CreatePollModal({
       }
     });
 
+  const validateDateRange = (startValue: string, endValue: string) => {
+    if (!startValue || !endValue) {
+      setDateError("");
+      return true;
+    }
+    const start = new Date(startValue);
+    const end = new Date(endValue);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+      setDateError("Enter valid start and end dates.");
+      return false;
+    }
+    if (end <= start) {
+      setDateError("End date must be after start date.");
+      return false;
+    }
+    setDateError("");
+    return true;
+  };
+
   const validateForm = () => {
     const candidateNames = candidates.map((candidate) => candidate.name.trim());
     const result = pollSchema.safeParse({
@@ -735,9 +754,12 @@ export default function CreatePollModal({
                       value={formState.startDate}
                       onChange={(event) => {
                         updateField("startDate", event.target.value);
-                        if (dateError) {
-                          validateDates(event.target.value, formState.endDate);
-                        }
+                      if (dateError) {
+                        validateDateRange(
+                          event.target.value,
+                          formState.endDate,
+                        );
+                      }
                       }}
                       disabled={isLocked || submitting}
                       className="mt-2 w-full rounded-lg border px-3 py-2 text-sm disabled:bg-gray-100"
@@ -752,7 +774,10 @@ export default function CreatePollModal({
                       value={formState.endDate}
                       onChange={(event) => {
                         updateField("endDate", event.target.value);
-                        validateDates(formState.startDate, event.target.value);
+                        validateDateRange(
+                          formState.startDate,
+                          event.target.value,
+                        );
                       }}
                       disabled={isLocked || submitting}
                       className="mt-2 w-full rounded-lg border px-3 py-2 text-sm disabled:bg-gray-100"
