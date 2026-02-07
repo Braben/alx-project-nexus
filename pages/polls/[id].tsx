@@ -394,7 +394,7 @@ export default function PollDetailsPage() {
                           </span>
                         )}
                     </div>
-                    {poll.visibility === "hidden" && poll.status !== "Ended" ? (
+                    {poll.visibility === "hidden" ? (
                       <>
                         <PollVote
                           options={voterOptions}
