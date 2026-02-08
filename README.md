@@ -14,6 +14,10 @@ Next.js • TypeScript • Redux Toolkit • Tailwind CSS • API-driven archite
 
 REQUIREMENT DOCUMENT: [https://docs.google.com/document/d/167T263gH-MKE_3NX2HUqBajTy6Yjm9fw1QUHiSUCfoo/edit?usp=sharing](https://docs.google.com/document/d/167T263gH-MKE_3NX2HUqBajTy6Yjm9fw1QUHiSUCfoo/edit?usp=sharing)
 
+## Deployed Link - Vercel
+
+### [https://alx-project-nexus-flame.vercel.app/](https://alx-project-nexus-flame.vercel.app/)
+
 ## 📌 1. Problem Statement
 
 Current real-time polling solutions fall into two extremes:

@@ -89,8 +89,8 @@ export default function DashboardPage() {
   });
 
   return (
-    <div className="flex bg-gray-50 min-h-screen">
-      <main className="flex-1 p-8">
+    <div className="flex min-h-screen bg-gray-50">
+      <main className="flex-1 w-full p-4 sm:p-6 lg:p-8">
         <PollFilters />
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">

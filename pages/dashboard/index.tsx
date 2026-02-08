@@ -410,10 +410,10 @@ export default function DashboardPage() {
   const hasMorePolls = filteredPolls.length > visiblePolls.length;
 
   return (
-    <div className="flex bg-gray-50 min-h-screen">
+    <div className="flex min-h-screen flex-col bg-gray-50 md:flex-row">
       <Sidebar />
 
-      <main className="flex-1 p-8">
+      <main className="flex-1 w-full p-4 sm:p-6 lg:p-8">
         {!isVerified && (
           <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
             Please verify your email to create or edit polls. Check your inbox
@@ -620,7 +620,7 @@ export default function DashboardPage() {
                   </div>
 
                   <div className="rounded-lg border border-gray-200">
-                    <div className="grid grid-cols-3 gap-2 border-b bg-gray-50 px-4 py-2 text-xs font-semibold text-gray-500">
+                    <div className="hidden grid-cols-3 gap-2 border-b bg-gray-50 px-4 py-2 text-xs font-semibold text-gray-500 sm:grid">
                       <span>Option</span>
                       <span>Votes</span>
                       <span>Share</span>
@@ -635,13 +635,28 @@ export default function DashboardPage() {
                         return (
                           <div
                             key={candidate.id}
-                            className="grid grid-cols-3 gap-2 px-4 py-2 text-sm text-gray-700"
+                            className="grid grid-cols-1 gap-2 px-4 py-3 text-sm text-gray-700 sm:grid-cols-3 sm:gap-2 sm:py-2"
                           >
-                            <span className="font-medium text-gray-900">
-                              {candidate.name}
-                            </span>
-                            <span>{count}</span>
-                            <span>{percent}%</span>
+                            <div>
+                              <p className="text-xs font-semibold uppercase text-gray-400 sm:hidden">
+                                Option
+                              </p>
+                              <p className="font-medium text-gray-900">
+                                {candidate.name}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-xs font-semibold uppercase text-gray-400 sm:hidden">
+                                Votes
+                              </p>
+                              <p>{count}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs font-semibold uppercase text-gray-400 sm:hidden">
+                                Share
+                              </p>
+                              <p>{percent}%</p>
+                            </div>
                           </div>
                         );
                       })}

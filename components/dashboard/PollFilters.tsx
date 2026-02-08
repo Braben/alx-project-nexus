@@ -16,9 +16,9 @@ export default function PollFilters() {
   ];
 
   return (
-    <div className="flex flex-col md:flex-row justify-between gap-4 mb-6">
+    <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
       {/* Tabs */}
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         {tabs.map((tab) => (
           <button
             key={tab.label}
@@ -39,7 +39,7 @@ export default function PollFilters() {
         value={search}
         onChange={(e) => dispatch(setSearch(e.target.value))}
         placeholder="Search polls by title..."
-        className="border rounded-lg px-3 py-2 text-sm w-64"
+        className="w-full rounded-lg border px-3 py-2 text-sm md:w-64"
       />
     </div>
   );

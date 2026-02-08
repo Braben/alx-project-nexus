@@ -70,10 +70,12 @@ export default function PollCard({
       : null;
 
   return (
-    <div className="bg-white border rounded-2xl p-5 shadow-sm">
-      <div className="flex justify-between items-center mb-2">
-        <h3 className="font-semibold text-gray-900">{title}</h3>
-        <span className={`text-xs px-3 py-1 rounded-full ${statusColor}`}>
+    <div className="rounded-2xl border bg-white p-5 shadow-sm">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <h3 className="min-w-0 flex-1 truncate font-semibold text-gray-900">
+          {title}
+        </h3>
+        <span className={`rounded-full px-3 py-1 text-xs ${statusColor}`}>
           {status}
         </span>
       </div>
@@ -90,7 +92,7 @@ export default function PollCard({
         <div className="mb-4" />
       )}
 
-      <div className="border-y border-gray-100 py-4 flex gap-8 text-sm">
+      <div className="flex flex-wrap gap-6 border-y border-gray-100 py-4 text-sm">
         <div>
           <p className="font-semibold text-lg text-gray-900">{responses}</p>
           <p className="text-gray-400">Responses</p>
@@ -118,9 +120,59 @@ export default function PollCard({
         </div>
       )}
 
-      <div className="mt-4 flex items-center justify-between">
+      <div className="mt-4 flex flex-wrap items-center gap-2">
         {status === "Live" && (
           <>
+            <div className="flex w-full justify-end sm:hidden">
+              <details className="relative">
+                <summary className="list-none rounded-lg border px-4 py-2 text-sm text-gray-700">
+                  Actions
+                </summary>
+                <div className="absolute right-0 mt-2 w-44 rounded-xl border bg-white p-2 shadow-lg">
+                  <button
+                    type="button"
+                    className="w-full rounded-lg px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                    onClick={(event) => {
+                      event.currentTarget.closest("details")?.removeAttribute("open");
+                      onShare?.(poll);
+                    }}
+                  >
+                    Share
+                  </button>
+                  <button
+                    type="button"
+                    className="w-full rounded-lg px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                    onClick={(event) => {
+                      event.currentTarget.closest("details")?.removeAttribute("open");
+                      onEdit?.(poll);
+                    }}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    className="w-full rounded-lg px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                    onClick={(event) => {
+                      event.currentTarget.closest("details")?.removeAttribute("open");
+                      onResults?.(poll);
+                    }}
+                  >
+                    Results
+                  </button>
+                  <button
+                    type="button"
+                    className="w-full rounded-lg px-3 py-2 text-left text-sm text-red-600 hover:bg-gray-50"
+                    onClick={(event) => {
+                      event.currentTarget.closest("details")?.removeAttribute("open");
+                      onEnd?.(poll);
+                    }}
+                  >
+                    End Poll
+                  </button>
+                </div>
+              </details>
+            </div>
+            <div className="hidden flex-wrap items-center gap-2 sm:flex">
             <button
               type="button"
               className="flex items-center gap-2 rounded-lg border px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
@@ -150,11 +202,42 @@ export default function PollCard({
             >
               End Poll
             </button>
+            </div>
           </>
         )}
 
         {status === "Draft" && (
           <>
+            <div className="flex w-full justify-end sm:hidden">
+              <details className="relative">
+                <summary className="list-none rounded-lg border px-4 py-2 text-sm text-gray-700">
+                  Actions
+                </summary>
+                <div className="absolute right-0 mt-2 w-44 rounded-xl border bg-white p-2 shadow-lg">
+                  <button
+                    type="button"
+                    className="w-full rounded-lg px-3 py-2 text-left text-sm text-blue-700 hover:bg-gray-50"
+                    onClick={(event) => {
+                      event.currentTarget.closest("details")?.removeAttribute("open");
+                      onEdit?.(poll);
+                    }}
+                  >
+                    Edit Poll
+                  </button>
+                  <button
+                    type="button"
+                    className="w-full rounded-lg px-3 py-2 text-left text-sm text-red-600 hover:bg-gray-50"
+                    onClick={(event) => {
+                      event.currentTarget.closest("details")?.removeAttribute("open");
+                      onDelete?.(poll);
+                    }}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </details>
+            </div>
+            <div className="hidden flex-wrap items-center gap-2 sm:flex">
             <button
               type="button"
               className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700 hover:bg-blue-100"
@@ -169,11 +252,72 @@ export default function PollCard({
             >
               Delete
             </button>
+            </div>
           </>
         )}
 
         {status === "Ended" && (
           <>
+            <div className="flex w-full justify-end sm:hidden">
+              <details className="relative">
+                <summary className="list-none rounded-lg border px-4 py-2 text-sm text-gray-700">
+                  Actions
+                </summary>
+                <div className="absolute right-0 mt-2 w-44 rounded-xl border bg-white p-2 shadow-lg">
+                  <button
+                    type="button"
+                    className="w-full rounded-lg px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                    onClick={(event) => {
+                      event.currentTarget.closest("details")?.removeAttribute("open");
+                      onEdit?.(poll);
+                    }}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    className="w-full rounded-lg px-3 py-2 text-left text-sm text-emerald-700 hover:bg-gray-50"
+                    onClick={(event) => {
+                      event.currentTarget.closest("details")?.removeAttribute("open");
+                      onEnd?.(poll);
+                    }}
+                  >
+                    Reopen
+                  </button>
+                  <button
+                    type="button"
+                    className="w-full rounded-lg px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                    onClick={(event) => {
+                      event.currentTarget.closest("details")?.removeAttribute("open");
+                      onExport?.(poll);
+                    }}
+                  >
+                    Export
+                  </button>
+                  <button
+                    type="button"
+                    className="w-full rounded-lg px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                    onClick={(event) => {
+                      event.currentTarget.closest("details")?.removeAttribute("open");
+                      onResults?.(poll);
+                    }}
+                  >
+                    Results
+                  </button>
+                  <button
+                    type="button"
+                    className="w-full rounded-lg px-3 py-2 text-left text-sm text-red-600 hover:bg-gray-50"
+                    onClick={(event) => {
+                      event.currentTarget.closest("details")?.removeAttribute("open");
+                      onDelete?.(poll);
+                    }}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </details>
+            </div>
+            <div className="hidden flex-wrap items-center gap-2 sm:flex">
             <button
               type="button"
               className="text-sm font-medium text-gray-500 hover:text-gray-700"
@@ -209,17 +353,41 @@ export default function PollCard({
             >
               Delete
             </button>
+            </div>
           </>
         )}
 
         {status === "Archived" && (
-          <button
-            type="button"
-            className="text-sm font-medium text-gray-500 hover:text-gray-700"
-            onClick={() => onResults?.(poll)}
-          >
-            Results
-          </button>
+          <>
+            <div className="flex w-full justify-end sm:hidden">
+              <details className="relative">
+                <summary className="list-none rounded-lg border px-4 py-2 text-sm text-gray-700">
+                  Actions
+                </summary>
+                <div className="absolute right-0 mt-2 w-44 rounded-xl border bg-white p-2 shadow-lg">
+                  <button
+                    type="button"
+                    className="w-full rounded-lg px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                    onClick={(event) => {
+                      event.currentTarget.closest("details")?.removeAttribute("open");
+                      onResults?.(poll);
+                    }}
+                  >
+                    Results
+                  </button>
+                </div>
+              </details>
+            </div>
+            <div className="hidden flex-wrap items-center gap-2 sm:flex">
+              <button
+                type="button"
+                className="text-sm font-medium text-gray-500 hover:text-gray-700"
+                onClick={() => onResults?.(poll)}
+              >
+                Results
+              </button>
+            </div>
+          </>
         )}
       </div>
     </div>
